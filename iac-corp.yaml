@@ -1,0 +1,438 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Resources:
+  # ==================================================
+  #  VPC定義
+  # ==================================================
+
+  CommonVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: corp-wordpress
+
+  # ==================================================
+  #  InternetGateway定義
+  # ==================================================
+
+  # CommonVpcIgw定義
+  CommonVpcIgw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: common-vpc
+  CommonVpcIgwAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref CommonVpc
+      InternetGatewayId: !Ref CommonVpcIgw
+
+  # ==================================================
+  #  PublicSubnet定義
+  # ==================================================
+
+  # コーポレートサイト用パブリックサブネット
+  CorporatePublicSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn: CommonVpcIgwAttachment
+    Properties:
+      VpcId: !Ref CommonVpc
+      CidrBlock: 192.168.1.0/24
+      AvailabilityZone: ap-northeast-1d
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: corp-wordpress-public-1
+  CorporatePublicSubnet2:
+    Type: AWS::EC2::Subnet
+    DependsOn: CommonVpcIgwAttachment
+    Properties:
+      VpcId: !Ref CommonVpc
+      CidrBlock: 192.168.2.0/24
+      AvailabilityZone: ap-northeast-1a
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: corp-wrodpress-public-2
+
+  # ==================================================
+  #  PrivateSubnet定義
+  # ==================================================
+
+  # 共通RDS用プライベートサブネット
+  CommonRdsPrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CommonVpc
+      CidrBlock: 192.168.254.0/24
+      AvailabilityZone: ap-northeast-1d
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: corp-rds-private-1
+  CommonRdsPrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CommonVpc
+      CidrBlock: 192.168.255.0/24
+      AvailabilityZone: ap-northeast-1a
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: corp-rds-private-2
+
+  # ==================================================
+  #  RouteTable定義
+  # ==================================================
+
+  # CorporatePublicSubnet関連
+  CorporatePublicSubnetRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: CommonVpcIgwAttachment
+    Properties:
+      VpcId: !Ref CommonVpc
+      Tags:
+        - Key: Name
+          Value: corp-public-subnet
+  CorporatePublicSubnetRouting1:
+    Type: AWS::EC2::Route
+    DependsOn: CommonVpcIgwAttachment
+    Properties:
+      RouteTableId: !Ref CorporatePublicSubnetRouteTable
+      GatewayId: !Ref CommonVpcIgw
+      DestinationCidrBlock: 0.0.0.0/0
+  CorporatePublicSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref CorporatePublicSubnetRouteTable
+      SubnetId: !Ref CorporatePublicSubnet1
+  CorporatePublicSubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref CorporatePublicSubnetRouteTable
+      SubnetId: !Ref CorporatePublicSubnet2
+
+  # CorporatePrivateSubnet関連
+  CommonRdsPrivateSubnetRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: CommonVpcIgwAttachment
+    Properties:
+      VpcId: !Ref CommonVpc
+      Tags:
+        - Key: Name
+          Value: corp-rds-private-subnet
+  CommonRdsPrivateSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref CommonRdsPrivateSubnetRouteTable
+      SubnetId: !Ref CommonRdsPrivateSubnet1
+  CommonRdsPrivateSubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref CommonRdsPrivateSubnetRouteTable
+      SubnetId: !Ref CommonRdsPrivateSubnet2
+
+  # ==================================================
+  #  SecurityGroup定義
+  # ==================================================
+
+  CorporateAlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: CorporateAlbSecurityGroup
+      GroupDescription: SecurityGroup For Corporate ALB
+      VpcId: !Ref CommonVpc
+      SecurityGroupIngress:
+        - {
+            IpProtocol: tcp,
+            FromPort: 443,
+            ToPort: 443,
+            CidrIp: 221.115.227.202/32,
+            Description: HTTPS setting for Scramble Square 24F,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 443,
+            ToPort: 443,
+            CidrIp: 221.115.214.162/32,
+            Description: HTTPS setting for Scramble Square 25F,
+          }
+      Tags:
+        - Key: Name
+          Value: corp-wordpress-alb
+
+  CorporateWebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: CorporateWebServerSecurityGroup
+      GroupDescription: SecurityGroup For Corporate WebServer
+      VpcId: !Ref CommonVpc
+      SecurityGroupIngress:
+        - {
+            IpProtocol: tcp,
+            FromPort: 80,
+            ToPort: 80,
+            CidrIp: 0.0.0.0/0,
+            Description: HTTP setting for alb-security-group,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 22,
+            ToPort: 22,
+            CidrIp: 221.112.40.106/32,
+            Description: SSH setting for VPN,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 22,
+            ToPort: 22,
+            CidrIp: 221.115.227.202/32,
+            Description: SSH setting for Scramble Square 24F-main,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 22,
+            ToPort: 22,
+            CidrIp: 202.215.75.103/32,
+            Description: SSH setting for Scramble Square 24F-backup,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 22,
+            ToPort: 22,
+            CidrIp: 113.33.145.46/32,
+            Description: SSH setting for Scramble Square 24F-main-2,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 22,
+            ToPort: 22,
+            CidrIp: 220.247.125.250/32,
+            Description: SSH setting for Scramble Square 24F-backup-2,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 22,
+            ToPort: 22,
+            CidrIp: 221.115.214.162/32,
+            Description: SSH setting for Scramble Square 25F-main,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 22,
+            ToPort: 22,
+            CidrIp: 202.215.75.197/32,
+            Description: SSH setting for Scramble Square 25F-backup,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 22,
+            ToPort: 22,
+            CidrIp: 113.33.145.50/32,
+            Description: SSH setting for Scramble Square 25F-main-2,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 22,
+            ToPort: 22,
+            CidrIp: 220.247.125.251/32,
+            Description: SSH setting for Scramble Square 25F-backup-2,
+          }
+      Tags:
+        - Key: Name
+          Value: corp-wodpress-web-server
+
+  CommonRdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: CommonRdsSecurityGroup
+      GroupDescription: SecurityGroup For Common RDS
+      VpcId: !Ref CommonVpc
+      SecurityGroupIngress:
+        - {
+            IpProtocol: tcp,
+            FromPort: 3306,
+            ToPort: 3306,
+            CidrIp: 192.168.1.0/24,
+            Description: MySQL setting for CorporatePublicSubnet1,
+          }
+        - {
+            IpProtocol: tcp,
+            FromPort: 3306,
+            ToPort: 3306,
+            CidrIp: 192.168.2.0/24,
+            Description: MySQL setting for CorporatePublicSubnet2,
+          }
+      Tags:
+        - Key: Name
+          Value: corp-wordpress-rds
+
+  # ==================================================
+  #  NetworkACL定義
+  # ==================================================
+
+  # CorporatePublicSubnet関連
+  CorporatePublicSubnetAcl:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref CommonVpc
+      Tags:
+        - Key: Name
+          Value: corporate-public-subnet
+  CorporatePublicSubnetAclEntryIn100:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref CorporatePublicSubnetAcl
+      RuleNumber: 100
+      Protocol: -1
+      RuleAction: deny
+      Egress: false
+      CidrBlock: 103.119.129.23/32
+  CorporatePublicSubnetAclEntryIn200:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref CorporatePublicSubnetAcl
+      RuleNumber: 200
+      Protocol: -1
+      RuleAction: allow
+      Egress: false
+      CidrBlock: 0.0.0.0/0
+  CorporatePublicSubnetAclEntryOut200:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref CorporatePublicSubnetAcl
+      RuleNumber: 200
+      Protocol: -1
+      RuleAction: allow
+      Egress: true
+      CidrBlock: 0.0.0.0/0
+  CorporatePublicSubnetAclAssociation1:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      SubnetId: !Ref CorporatePublicSubnet1
+      NetworkAclId: !Ref CorporatePublicSubnetAcl
+  CorporatePublicSubnetAclAssociation2:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      SubnetId: !Ref CorporatePublicSubnet2
+      NetworkAclId: !Ref CorporatePublicSubnetAcl
+
+  # ==================================================
+  #  EC2定義
+  # ==================================================
+
+  # コーポレートサイトWebサーバー
+  CorporateWebServerEc2:
+    Type: AWS::EC2::Instance
+    Properties:
+      SubnetId: !Ref CorporatePublicSubnet1
+      SecurityGroupIds:
+        - !Ref CorporateWebServerSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: "/dev/xvda"
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp2
+      ImageId: ami-068a6cefc24c301d2
+      InstanceType: t3a.medium
+      InstanceInitiatedShutdownBehavior: stop
+      Monitoring: true
+      Tenancy: default
+      KeyName: msd-bs-corp
+      CreditSpecification:
+        CPUCredits: standard
+      Tags:
+        - Key: Name
+          Value: corp-wordpress-server
+  CorporateWebServerEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref CorporateWebServerEc2
+
+  # ==================================================
+  #  RDS定義
+  # ==================================================
+
+  # 共通RDS
+  CommonRdsDbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      SubnetIds:
+        - !Ref CommonRdsPrivateSubnet1
+        - !Ref CommonRdsPrivateSubnet2
+      DBSubnetGroupDescription: DBSubnetGroup For CommonRds
+      Tags:
+        - Key: Name
+          Value: common-wordpress-rds
+  CommonRdsDbParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: DBParameterGroup For CommonRds (mysql8.0 CustomParameter)
+      Family: mysql8.0
+      Tags:
+        - Key: Name
+          Value: corp-wordpress-parameter
+  CommonRds:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AvailabilityZone: ap-northeast-1d
+      VPCSecurityGroups:
+        - !Ref CommonRdsSecurityGroup
+      DBSubnetGroupName: !Ref CommonRdsDbSubnetGroup
+      DBParameterGroupName: !Ref CommonRdsDbParameterGroup
+      MultiAZ: false
+      AutoMinorVersionUpgrade: false
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      StorageType: gp2
+      DBInstanceIdentifier: common-rds-prod
+      MasterUsername: admin
+      MasterUserPassword: msdbsadmin0531
+      Engine: mysql
+      EngineVersion: 8.0.23
+      Port: 3306
+
+  # ==================================================
+  #  ALB定義
+  # ==================================================
+
+  # コーポレートサイト用ALB
+  CorporateAlbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: corporate-alb
+      Protocol: HTTP
+      Port: 80
+      HealthCheckPath: /index.html
+      HealthCheckIntervalSeconds: 30
+      TargetType: instance
+      VpcId: !Ref CommonVpc
+      Targets:
+        - Id: !Ref CorporateWebServerEc2
+          Port: 80
+  CorporateAlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: corporate
+      Scheme: internet-facing
+      IpAddressType: ipv4
+      Subnets:
+        - !Ref CorporatePublicSubnet1
+        - !Ref CorporatePublicSubnet2
+      SecurityGroups:
+        - !Ref CorporateAlbSecurityGroup
+  CorporateAlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref CorporateAlb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - TargetGroupArn: !Ref CorporateAlbTargetGroup
+          Type: forward
