@@ -48,4 +48,3 @@ CommonRdsPrivateSubnetRouteTableAssociation2:
   Properties:
     RouteTableId: !Ref CommonRdsPrivateSubnetRouteTable
     SubnetId: !Ref CommonRdsPrivateSubnet2
-    

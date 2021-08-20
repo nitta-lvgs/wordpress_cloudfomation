@@ -36,4 +36,3 @@ CorporateAlbListener:
     DefaultActions:
       - TargetGroupArn: !Ref CorporateAlbTargetGroup
         Type: forward
-        
