@@ -1,0 +1,51 @@
+# ==================================================
+#  RouteTable定義
+# ==================================================
+
+# CorporatePublicSubnet関連
+CorporatePublicSubnetRouteTable:
+  Type: AWS::EC2::RouteTable
+  DependsOn: CommonVpcIgwAttachment
+  Properties:
+    VpcId: !Ref CommonVpc
+    Tags:
+      - Key: Name
+        Value: corp-public-subnet
+CorporatePublicSubnetRouting1:
+  Type: AWS::EC2::Route
+  DependsOn: CommonVpcIgwAttachment
+  Properties:
+    RouteTableId: !Ref CorporatePublicSubnetRouteTable
+    GatewayId: !Ref CommonVpcIgw
+    DestinationCidrBlock: 0.0.0.0/0
+CorporatePublicSubnetRouteTableAssociation1:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties:
+    RouteTableId: !Ref CorporatePublicSubnetRouteTable
+    SubnetId: !Ref CorporatePublicSubnet1
+CorporatePublicSubnetRouteTableAssociation2:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties:
+    RouteTableId: !Ref CorporatePublicSubnetRouteTable
+    SubnetId: !Ref CorporatePublicSubnet2
+
+# CorporatePrivateSubnet関連
+CommonRdsPrivateSubnetRouteTable:
+  Type: AWS::EC2::RouteTable
+  DependsOn: CommonVpcIgwAttachment
+  Properties:
+    VpcId: !Ref CommonVpc
+    Tags:
+      - Key: Name
+        Value: corp-rds-private-subnet
+CommonRdsPrivateSubnetRouteTableAssociation1:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties:
+    RouteTableId: !Ref CommonRdsPrivateSubnetRouteTable
+    SubnetId: !Ref CommonRdsPrivateSubnet1
+CommonRdsPrivateSubnetRouteTableAssociation2:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties:
+    RouteTableId: !Ref CommonRdsPrivateSubnetRouteTable
+    SubnetId: !Ref CommonRdsPrivateSubnet2
+    

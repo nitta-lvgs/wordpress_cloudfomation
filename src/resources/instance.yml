@@ -1,0 +1,74 @@
+# ==================================================
+#  EC2定義
+# ==================================================
+
+# コーポレートサイトWebサーバー
+CorporateWebServerEc2:
+  Type: AWS::EC2::Instance
+  Properties:
+    SubnetId: !Ref CorporatePublicSubnet1
+    SecurityGroupIds:
+      - !Ref CorporateWebServerSecurityGroup
+    BlockDeviceMappings:
+      - DeviceName: "/dev/xvda"
+        Ebs:
+          VolumeSize: 30
+          VolumeType: gp2
+    ImageId: ami-068a6cefc24c301d2
+    InstanceType: t3a.medium
+    InstanceInitiatedShutdownBehavior: stop
+    Monitoring: true
+    Tenancy: default
+    KeyName: msd-bs-corp
+    CreditSpecification:
+      CPUCredits: standard
+    Tags:
+      - Key: Name
+        Value: corp-wordpress-server
+CorporateWebServerEip:
+  Type: AWS::EC2::EIP
+  Properties:
+    Domain: vpc
+    InstanceId: !Ref CorporateWebServerEc2
+
+# ==================================================
+#  RDS定義
+# ==================================================
+
+CommonRdsDbSubnetGroup:
+  Type: AWS::RDS::DBSubnetGroup
+  Properties:
+    SubnetIds:
+      - !Ref CommonRdsPrivateSubnet1
+      - !Ref CommonRdsPrivateSubnet2
+    DBSubnetGroupDescription: DBSubnetGroup For CommonRds
+    Tags:
+      - Key: Name
+        Value: common-wordpress-rds
+CommonRdsDbParameterGroup:
+  Type: AWS::RDS::DBParameterGroup
+  Properties:
+    Description: DBParameterGroup For CommonRds (mysql8.0 CustomParameter)
+    Family: mysql8.0
+    Tags:
+      - Key: Name
+        Value: corp-wordpress-parameter
+CommonRds:
+  Type: AWS::RDS::DBInstance
+  Properties:
+    AvailabilityZone: ap-northeast-1d
+    VPCSecurityGroups:
+      - !Ref CommonRdsSecurityGroup
+    DBSubnetGroupName: !Ref CommonRdsDbSubnetGroup
+    DBParameterGroupName: !Ref CommonRdsDbParameterGroup
+    MultiAZ: false
+    AutoMinorVersionUpgrade: false
+    DBInstanceClass: db.t3.micro
+    AllocatedStorage: 20
+    StorageType: gp2
+    DBInstanceIdentifier: common-rds-prod
+    MasterUsername: admin
+    MasterUserPassword: msdbsadmin0531
+    Engine: mysql
+    EngineVersion: 8.0.23
+    Port: 3306

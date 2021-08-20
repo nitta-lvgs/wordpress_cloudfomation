@@ -1,0 +1,53 @@
+# ==================================================
+#  PublicSubnet定義
+# ==================================================
+
+# コーポレートサイト用パブリックサブネット
+CorporatePublicSubnet1:
+  Type: AWS::EC2::Subnet
+  DependsOn: CommonVpcIgwAttachment
+  Properties:
+    VpcId: !Ref CommonVpc
+    CidrBlock: 192.168.1.0/24
+    AvailabilityZone: ap-northeast-1d
+    MapPublicIpOnLaunch: false
+    Tags:
+      - Key: Name
+        Value: corp-wordpress-public-1
+CorporatePublicSubnet2:
+  Type: AWS::EC2::Subnet
+  DependsOn: CommonVpcIgwAttachment
+  Properties:
+    VpcId: !Ref CommonVpc
+    CidrBlock: 192.168.2.0/24
+    AvailabilityZone: ap-northeast-1a
+    MapPublicIpOnLaunch: false
+    Tags:
+      - Key: Name
+        Value: corp-wrodpress-public-2
+
+# ==================================================
+#  PrivateSubnet定義
+# ==================================================
+
+# 共通RDS用プライベートサブネット
+CommonRdsPrivateSubnet1:
+  Type: AWS::EC2::Subnet
+  Properties:
+    VpcId: !Ref CommonVpc
+    CidrBlock: 192.168.254.0/24
+    AvailabilityZone: ap-northeast-1d
+    MapPublicIpOnLaunch: false
+    Tags:
+      - Key: Name
+        Value: corp-rds-private-1
+CommonRdsPrivateSubnet2:
+  Type: AWS::EC2::Subnet
+  Properties:
+    VpcId: !Ref CommonVpc
+    CidrBlock: 192.168.255.0/24
+    AvailabilityZone: ap-northeast-1a
+    MapPublicIpOnLaunch: false
+    Tags:
+      - Key: Name
+        Value: corp-rds-private-2

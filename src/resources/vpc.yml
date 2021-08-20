@@ -1,0 +1,30 @@
+# ==================================================
+#  VPC定義
+# ==================================================
+
+CommonVpc:
+  Type: AWS::EC2::VPC
+  Properties:
+    CidrBlock: 192.168.0.0/16
+    EnableDnsHostnames: true
+    EnableDnsSupport: true
+    Tags:
+      - Key: Name
+        Value: corp-wordpress
+
+# ==================================================
+#  InternetGateway定義
+# ==================================================
+
+# CommonVpcIgw定義
+CommonVpcIgw:
+  Type: AWS::EC2::InternetGateway
+  Properties:
+    Tags:
+      - Key: Name
+        Value: common-vpc
+CommonVpcIgwAttachment:
+  Type: AWS::EC2::VPCGatewayAttachment
+  Properties:
+    VpcId: !Ref CommonVpc
+    InternetGatewayId: !Ref CommonVpcIgw
