@@ -1,0 +1,38 @@
+# ==================================================
+#  ALB定義
+# ==================================================
+
+# コーポレートサイト用ALB
+CorporateAlbTargetGroup:
+  Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  Properties:
+    Name: corporate-alb
+    Protocol: HTTP
+    Port: 80
+    HealthCheckPath: /index.html
+    HealthCheckIntervalSeconds: 30
+    TargetType: instance
+    VpcId: !Ref CommonVpc
+    Targets:
+      - Id: !Ref CorporateWebServerEc2
+        Port: 80
+CorporateAlb:
+  Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  Properties:
+    Name: corporate
+    Scheme: internet-facing
+    IpAddressType: ipv4
+    Subnets:
+      - !Ref CorporatePublicSubnet1
+      - !Ref CorporatePublicSubnet2
+    SecurityGroups:
+      - !Ref CorporateAlbSecurityGroup
+CorporateAlbListener:
+  Type: AWS::ElasticLoadBalancingV2::Listener
+  Properties:
+    LoadBalancerArn: !Ref CorporateAlb
+    Port: 80
+    Protocol: HTTP
+    DefaultActions:
+      - TargetGroupArn: !Ref CorporateAlbTargetGroup
+        Type: forward

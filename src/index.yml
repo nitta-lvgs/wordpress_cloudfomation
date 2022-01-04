@@ -1,0 +1,6 @@
+# npx cftemplate src > stack.yml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: corp template
+
+Resources:
+  $ref: .resources.yml

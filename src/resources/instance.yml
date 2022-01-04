@@ -1,0 +1,120 @@
+# ==================================================
+#  EC2定義
+# ==================================================
+
+# コーポレートサイトWebサーバー
+CorporateWebServerEc2:
+  Type: AWS::EC2::Instance
+  Properties:
+    SubnetId: !Ref CorporatePublicSubnet1
+    SecurityGroupIds:
+      - !Ref CorporateWebServerSecurityGroup
+    BlockDeviceMappings:
+      - DeviceName: "/dev/xvda"
+        Ebs:
+          VolumeSize: 30
+          VolumeType: gp2
+    ImageId: ami-068a6cefc24c301d2
+    InstanceType: t3a.medium
+    InstanceInitiatedShutdownBehavior: stop
+    Monitoring: true
+    Tenancy: default
+    KeyName: msd-bs-corp
+    CreditSpecification:
+      CPUCredits: standard
+    Tags:
+      - Key: Name
+        Value: corp-wordpress-server
+    UserData:
+      Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          yum update -y
+  Metadata:
+    AWS::CloudFormation::Init:
+      configSets:
+        ec2_setup:
+          - install_packages
+        
+      install_packages:
+        commands:
+          01_valid_epel:
+            command: "sudo amazon-linux-extras install epel"
+          02_install_remi:
+            command: "sudo yum -y install https://rpms.remirepo.net/enterprise/remi-release-7.rpm"
+          03_install_php:
+            command: "sudo yum -y install php80 php80-php php80-php-mbstring php80-php-pdo php80-php-xml php80-php-fpm php80-php-mysqlnd php80-php-gd"
+          04_alternatives_php:
+            command: "sudo alternatives --install /usr/bin/php php /usr/bin/php80 1"
+          05_install_nginx:
+            command: "sudo yum -y install nginx"
+          06_enable_nginx:
+            command: "sudo systemctl enable nginx"
+          07_start_nginx:
+            command: "sudo systemctl start nginx"
+          08_enable_php-fpm:
+            command: "sudo systemctl enable php80-php-fpm"
+          09_start_php-fpm:
+            command: "sudo systemctl start php80-php-fpm"
+          10_install_repository:
+            command: "sudo yum -y install https://dev.mysql.com/get/mysql80-community-release-el7-1.noarch.rpm"
+          11_install_mysql:
+            command: "sudo yum -y install --enablerepo=mysql80-community mysql-community-server"
+          12_create_www:
+            command: "sudo mkdir -p /var/www"
+          13_download_wordpress:
+            cwd: /var/www/
+            command: "sudo wget https://wordpress.org/latest.tar.gz"
+          14_extract_wordpress:
+            cwd: /var/www/
+            command: "sudo tar -xvzf latest.tar.gz -C /var/www/"
+          15_chmod_wordpress:
+            cwd: /var/www/
+            command: "chown -R nginx:nginx /var/www/wordpress"
+
+CorporateWebServerEip:
+  Type: AWS::EC2::EIP
+  Properties:
+    Domain: vpc
+    InstanceId: !Ref CorporateWebServerEc2
+
+# ==================================================
+#  RDS定義
+# ==================================================
+
+CommonRdsDbSubnetGroup:
+  Type: AWS::RDS::DBSubnetGroup
+  Properties:
+    SubnetIds:
+      - !Ref CommonRdsPrivateSubnet1
+      - !Ref CommonRdsPrivateSubnet2
+    DBSubnetGroupDescription: DBSubnetGroup For CommonRds
+    Tags:
+      - Key: Name
+        Value: common-wordpress-rds
+CommonRdsDbParameterGroup:
+  Type: AWS::RDS::DBParameterGroup
+  Properties:
+    Description: DBParameterGroup For CommonRds (mysql8.0 CustomParameter)
+    Family: mysql8.0
+    Tags:
+      - Key: Name
+        Value: corp-wordpress-parameter
+CommonRds:
+  Type: AWS::RDS::DBInstance
+  Properties:
+    AvailabilityZone: ap-northeast-1d
+    VPCSecurityGroups:
+      - !Ref CommonRdsSecurityGroup
+    DBSubnetGroupName: !Ref CommonRdsDbSubnetGroup
+    DBParameterGroupName: !Ref CommonRdsDbParameterGroup
+    MultiAZ: false
+    AutoMinorVersionUpgrade: false
+    DBInstanceClass: db.t3.micro
+    AllocatedStorage: 20
+    StorageType: gp2
+    DBInstanceIdentifier: common-rds-prod
+    MasterUsername: admin
+    MasterUserPassword: msdbsadmin0531
+    Engine: mysql
+    EngineVersion: 8.0.23
+    Port: 3306
